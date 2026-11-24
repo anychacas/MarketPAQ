@@ -1,0 +1,44 @@
+name: Solicitud de funcionalidad
+description: Propón una mejora o una característica nueva para MarketPAQ.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Las solicitudes de funcionalidad se discuten aquí antes de implementarse.
+        Si el cambio es grande, conviene acordar primero el enfoque en este
+        issue y abrir después el Pull Request.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema que resuelve
+      description: Qué problema concreto tiene hoy un desarrollador, un partner o un distribuidor.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+      description: Cómo crees que debería funcionar la solución.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Otras opciones que hayas evaluado y por qué no las elegiste.
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto de negocio
+      description: Versiones de CONTPAQi o SoftRestaurant, tipo de partner o perfil de usuario relacionado.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Comprobaciones
+      options:
+        - label: La solicitud no incluye datos personales ni datos de clientes.
+          required: true
+        - label: He buscado una solicitud similar en los issues abiertos.
+          required: false

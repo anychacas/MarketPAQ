@@ -1,0 +1,59 @@
+# Marketpaq backend + Postgres
+#
+# VPS location: /opt/marketpaq/prod/backend/docker-compose.yml
+# See README.md for full setup instructions.
+#
+# Upload persistence
+#   Host path  : /opt/marketpaq/prod/uploads   (created by deploy workflow)
+#   Container  : /app/uploads                  (UPLOAD_DIR env var)
+#   Served at  : /api/uploads/                 (Fastify @fastify/static)
+
+networks:
+  web:
+    external: true
+  backend_net:
+    internal: true
+
+volumes:
+  postgres_data:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-marketpaq}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-marketpaq}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - /opt/marketpaq/prod/uploads:/app/uploads
+    networks:
+      - web
+      - backend_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.marketpaq-backend.rule=Host(`marketpaq.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.marketpaq-backend.priority=10000"
+      - "traefik.http.routers.marketpaq-backend.entrypoints=websecure"
+      - "traefik.http.routers.marketpaq-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.marketpaq-backend.loadbalancer.server.port=3000"

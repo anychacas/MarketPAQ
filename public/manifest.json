@@ -1,0 +1,20 @@
+{
+  "name": "MarketPaq",
+  "short_name": "MarketPaq",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "70x80",
+      "type": "image/png"
+    },
+    {
+      "src": "/marketpaq-logo.png",
+      "sizes": "859x267",
+      "type": "image/png"
+    }
+  ]
+}

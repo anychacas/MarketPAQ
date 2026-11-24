@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Reportar un problema de seguridad
+    url: https://github.com/anychacas/MarketPAQ/security/advisories/new
+    about: >-
+      No abras issues públicos para vulnerabilidades. Usa el aviso privado de
+      GitHub ("Report a vulnerability"); solo el mantenedor y quien reporta
+      pueden verlo. Consulta SECURITY.md para más detalles.

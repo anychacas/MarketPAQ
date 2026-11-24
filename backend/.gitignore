@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+
+# Allow the example file to be committed despite root .gitignore pattern .env.*
+!.env.example
+
+# Uploaded files created at runtime by the backend
+uploads/

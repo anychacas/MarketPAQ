@@ -1,0 +1,28 @@
+User-agent: *
+
+# Páginas públicas indexables
+Allow: /
+Allow: /DevProfile
+Allow: /Privacy
+
+# Páginas privadas / utilitarias — no indexar
+Disallow: /Dashboard
+Disallow: /Login
+Disallow: /Signup
+Disallow: /VerifyEmail
+Disallow: /OnboardingRole
+Disallow: /OnboardingProfile
+Disallow: /DeveloperProfile
+Disallow: /ProfileSettings
+Disallow: /PublishAddon
+Disallow: /AdminAddons
+Disallow: /AdminDevelopers
+Disallow: /AdminPartners
+Disallow: /AdminUsers
+Disallow: /AdminVisitLogs
+Disallow: /FeatureRequests
+Disallow: /JoinPartner
+Disallow: /ResetPassword
+Disallow: /ResetPasswordRequest
+
+Sitemap: https://marketpaq.com/sitemap.xml

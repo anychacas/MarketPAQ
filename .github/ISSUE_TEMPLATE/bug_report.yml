@@ -1,0 +1,67 @@
+name: Reporte de error
+description: Reporta un problema reproducible en MarketPAQ (no es para vulnerabilidades).
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar. Si se trata de una vulnerabilidad de seguridad,
+        no uses este formulario: sigue el proceso privado descrito en
+        `SECURITY.md`.
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción
+      description: Qué ocurre y qué se esperaba que ocurriera.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      description: Pasos numerados, desde un estado limpio, para reproducir el problema.
+      placeholder: |
+        1. Iniciar sesión con una cuenta de prueba
+        2. Ir a "Panel de administración"
+        3. Publicar un add-on de ejemplo
+        4. Se muestra el error ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente
+      options:
+        - Frontend (React / Vite)
+        - Backend (Fastify / Prisma)
+        - Base de datos o migraciones
+        - Infraestructura y despliegues
+        - Documentación
+        - No estoy seguro
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Entorno y versión
+      description: Sistema operativo, navegador, versión de Node.js y de CONTPAQi o SoftRestaurant, si aplica.
+      placeholder: "Windows 11, Chrome 130, Node 20, CONTPAQi 2024"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Mensajes de error o capturas
+      description: Pega la salida de la consola o de los logs. Elimina cualquier dato sensible.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Comprobaciones
+      options:
+        - label: No incluí datos personales ni datos de clientes en este reporte.
+          required: true
+        - label: El problema también ocurre en la última versión de `main`.
+          required: false
+        - label: Ya revisé los issues abiertos y no hay un reporte equivalente.
+          required: false

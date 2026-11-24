@@ -1,0 +1,85 @@
+# MarketPAQ — LOCAL DEVELOPMENT stack (dev only)
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#       → starts PostgreSQL only (the backend normally runs on your host with npm)
+#
+#   docker compose -f docker-compose.dev.yml --profile backend up -d
+#       → also starts the backend inside a container (hot reload, port 3000)
+#
+#   docker compose -f docker-compose.dev.yml down
+#       → stops and removes the containers (keeps the database volume)
+#
+#   docker compose -f docker-compose.dev.yml down -v
+#       → stops everything AND wipes the database volume
+#
+# This file is intentionally NOT the production compose:
+#   - no Traefik labels
+#   - no external networks
+#   - no /opt paths
+#   - credentials are throw-away development values (marketpaq/marketpaq)
+# The production compose lives in infra/backend/docker-compose.yml — do not edit it.
+
+name: marketpaq-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketpaq-dev-postgres
+    restart: unless-stopped
+    environment:
+      # Throw-away development credentials — never reuse them anywhere else.
+      POSTGRES_USER: marketpaq
+      POSTGRES_PASSWORD: marketpaq
+      POSTGRES_DB: marketpaq
+    ports:
+      # Bound to loopback only: the dev database is never reachable from the LAN.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketpaq -d marketpaq"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    # Optional: only started when the "backend" profile is enabled.
+    profiles: ["backend"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # The builder stage keeps devDependencies (tsx, prisma CLI) so the source
+      # can be watched and migrations can run inside the container.
+      target: builder
+    container_name: marketpaq-dev-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      # Inside the compose network the database host is the service name.
+      DATABASE_URL: postgresql://marketpaq:marketpaq@postgres:5432/marketpaq
+      CORS_ORIGIN: http://localhost:5173
+      # Dev-only secret. Replace it if you expose this stack to anything else.
+      AUTH_SECRET: dev-only-insecure-secret-change-me
+      ADMIN_EMAILS: admin@example.com
+      MARKETPAQ_PUBLIC_URL: http://localhost:5173
+      FRONTEND_BASE_URL: http://localhost:5173
+      # Print emails to the container log instead of sending them.
+      MAIL_MODE: log
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+      - backend_uploads:/app/uploads
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+
+volumes:
+  postgres_dev_data:
+  backend_uploads:

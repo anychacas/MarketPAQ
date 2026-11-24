@@ -1,0 +1,344 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Core models
+// ---------------------------------------------------------------------------
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  /// "unset" | "developer" | "partner" | "partner_leader"  ("distributor" migrated → "partner" in 20260301000000)
+  userType           String    @default("unset")
+  onboardingComplete Boolean   @default(false)
+  /// Unique public profile slug (frontend filter key: developerHandle)
+  handle             String?   @unique
+  /// Display name — serialized as full_name in API responses
+  name               String?
+  company            String?
+  facebook           String?
+  avatarUrl          String?
+  /// "admin" | null — used by frontend access.jsx role checks
+  role               String?
+  passwordHash       String?
+  whatsapp           String?
+  emailVerified      Boolean   @default(false)
+  emailVerifiedAt    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // ── Reminder tracking ────────────────────────────────────────────────────
+  /// Last time the "complete your profile" reminder was sent. null = never sent.
+  profileReminderSentAt DateTime?
+  /// Number of "complete your profile" reminders sent. Hard cap: MAX_REMINDERS (8).
+  profileReminderCount  Int       @default(0)
+
+  // ── Partner Leader fields ─────────────────────────────────────────────────
+  /// Unique invite code (auto-generated on role selection); only set for userType='partner_leader'
+  partnerLeaderCode          String? @unique
+  /// true for developers and partner_leaders; false for partners
+  canPublishAddons           Boolean @default(false)
+  /// FK to the Partner Leader who invited this user; only relevant for partners
+  uplinePartnerLeaderId      String?
+
+  // ── Relations ─────────────────────────────────────────────────────────────
+  developerProfile        DeveloperProfile?
+  addons                  Addon[]
+  addonViews              AddonView[]
+  contactEvents           ContactEvent[]
+  addonRatings            AddonRating[]
+  developerRatings        DeveloperRating[]
+  passwordResetTokens     PasswordResetToken[]
+  featureRequests         FeatureRequest[]
+  featureVotes            FeatureVote[]
+  emailVerificationTokens EmailVerificationToken[]
+  /// Partner Leader who referred this user (nullable self-relation)
+  uplinePartnerLeader     User?                    @relation("PartnerUpline", fields: [uplinePartnerLeaderId], references: [id], onDelete: SetNull)
+  /// Partners this user has referred (only populated for Partner Leaders)
+  downlinePartners        User[]                   @relation("PartnerUpline")
+}
+
+model DeveloperProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  displayName    String
+  bio            String?
+  website        String?
+  /// Stored as international format, e.g. 5212341234567
+  whatsapp       String?
+  supportEmail   String?
+  /// True when developer targets CONTPAQi products
+  contpaqi       Boolean  @default(false)
+  /// True when developer targets SoftRestaurant
+  softrestaurant Boolean  @default(false)
+  logoUrl        String?
+  location       String?
+  services       String?
+  responseTime   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addons           Addon[]
+  developerRatings DeveloperRating[]
+}
+
+model Addon {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  /// Primary display name — frontend uses `name` (not `title`)
+  name            String
+  summary         String?
+  description     String?
+  vendor          String?
+  /// True when the add-on targets a CONTPAQi product
+  contpaqi        Boolean  @default(false)
+  /// True when the add-on targets SoftRestaurant
+  softrestaurant  Boolean  @default(false)
+  /// "draft" | "pending" | "published" | "rejected"
+  status          String   @default("draft")
+  manufacturer    String?
+  /// Target system / software the add-on applies to
+  system          String?
+  /// "propuesta" | "aprobada"
+  classification  String   @default("propuesta")
+  tags            String[]
+  priceFrom           Float?
+  /// ["vitalicia", "anual", "mensual"] — one or more
+  licenseType         String[]
+  /// Free text: "Por RFC", "Por equipo", "Por usuario", etc.
+  licenseDescription  String?
+  youtubeLinks    String[]
+  images          String[]
+  coverImage      String?
+  website         String?
+  contactEmail    String?
+  contactWhatsApp String?
+  /// Owner user ID — frontend uses ownerUserId (not userId)
+  ownerUserId     String
+  /// Optional FK to DeveloperProfile; null during stub/anon phase
+  developerId     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user          User              @relation(fields: [ownerUserId], references: [id])
+  developer     DeveloperProfile? @relation(fields: [developerId], references: [id])
+  addonViews    AddonView[]
+  contactEvents ContactEvent[]
+  addonRatings  AddonRating[]
+}
+
+// ---------------------------------------------------------------------------
+// Analytics
+// ---------------------------------------------------------------------------
+
+model AddonView {
+  id        String   @id @default(cuid())
+  addonId   String
+  userId    String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  addon Addon @relation(fields: [addonId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ContactEvent {
+  id        String   @id @default(cuid())
+  addonId   String
+  userId    String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  addon Addon @relation(fields: [addonId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+// ---------------------------------------------------------------------------
+// Ratings
+// ---------------------------------------------------------------------------
+
+model AddonRating {
+  id        String   @id @default(cuid())
+  addonId   String
+  userId    String
+  /// 1–5
+  score     Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addon Addon @relation(fields: [addonId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([addonId, userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  codeHash   String
+  expiresAt  DateTime
+  /// Incremented on each failed attempt; resets to 0 on resend
+  attempts   Int       @default(0)
+  /// Used to enforce 60 s rate-limit between resends
+  lastSentAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Feature Requests (Centro de mejoras)
+// ---------------------------------------------------------------------------
+
+model FeatureRequest {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  /// "open" | "planned" | "in_progress" | "done" | "rejected"
+  status          String   @default("open")
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy User          @relation(fields: [createdByUserId], references: [id])
+  votes     FeatureVote[]
+}
+
+model FeatureVote {
+  id               String   @id @default(cuid())
+  featureRequestId String
+  userId           String
+  createdAt        DateTime @default(now())
+
+  featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id])
+
+  @@unique([featureRequestId, userId])
+}
+
+model DeveloperRating {
+  id          String   @id @default(cuid())
+  developerId String
+  userId      String
+  /// 1–5
+  score       Int
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  developer DeveloperProfile @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@unique([developerId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// Email & Job System
+// ---------------------------------------------------------------------------
+
+/// Defines a recurring or one-time background job.
+model JobDefinition {
+  id           String    @id @default(cuid())
+  /// Stable identifier used in code: e.g. 'weekly_digest'
+  key          String    @unique
+  name         String
+  /// 'cron' | 'once' | 'interval'
+  scheduleType String
+  /// Cron expression e.g. '0 9 * * 1' (only for scheduleType='cron')
+  scheduleExpr String?
+  isEnabled    Boolean   @default(true)
+  lastRunAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+/// Tracks each execution attempt of a JobDefinition.
+model JobRun {
+  id           String    @id @default(cuid())
+  jobKey       String
+  /// 'queued' | 'running' | 'success' | 'failed' | 'skipped'
+  status       String
+  scheduledFor DateTime
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  attempt      Int       @default(0)
+  maxAttempts  Int       @default(3)
+  /// Instance ID that holds the lock: "{hostname}-{pid}"
+  lockedBy     String?
+  lockedAt     DateTime?
+  error        String?
+  meta         Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([jobKey, status])
+  @@index([scheduledFor])
+}
+
+/// Idempotency log for periodic email digests — prevents duplicate sends.
+model EmailDigestLog {
+  id        String   @id @default(cuid())
+  /// 'weekly_digest'
+  kind      String
+  /// Monday YYYY-MM-DD (server local time) — unique per kind+period
+  periodKey String
+  sentAt    DateTime @default(now())
+  meta      Json?
+
+  @@unique([kind, periodKey])
+}
+
+// ---------------------------------------------------------------------------
+// Visit Logs (Bitácora de visitas)
+// ---------------------------------------------------------------------------
+
+model VisitLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  ip        String?
+  userAgent String?
+  path      String
+  fullUrl   String?
+  referrer  String?
+  userId    String?
+  userEmail String?
+  userType  String?
+  role      String?
+  eventType String   @default("page_view")
+
+  @@index([createdAt])
+  @@index([ip])
+  @@index([path])
+}
+
+/// Anti-spam log for one-time transactional emails (welcome, profile reminders, etc.)
+model EmailSendLog {
+  id        String   @id @default(cuid())
+  /// 'welcome' | 'remind_profile_48h' | …
+  kind      String
+  userId    String
+  createdAt DateTime @default(now())
+  meta      Json?
+
+  @@unique([kind, userId])
+  @@index([kind])
+}
