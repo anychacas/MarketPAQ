@@ -1,26 +1,27 @@
-# Marketpaq Backend
+# Backend de MarketPAQ
 
-Fastify + Prisma API server. Runs on port 3000, served externally under `/api` via Traefik.
+Servidor de API con Fastify + Prisma. Escucha en el puerto 3000 y se publica
+externamente bajo `/api` a través de Traefik.
 
-## Local dev
+## Desarrollo local
 
 ```bash
-cp .env.example .env   # adjust DATABASE_URL to point at a local Postgres
+cp .env.example .env   # ajusta DATABASE_URL para apuntar a un Postgres local
 npm install
-npm run dev            # tsx watch — restarts on file changes
+npm run dev            # tsx watch — se reinicia al cambiar los archivos
 ```
 
-## Smoke tests
+## Pruebas de humo
 
 ```bash
-# Health check
+# Comprobación de disponibilidad
 curl http://127.0.0.1:3000/api/health
 
-# Config endpoint (inside container: docker compose exec backend sh)
+# Endpoint de configuración (dentro del contenedor: docker compose exec backend sh)
 curl http://127.0.0.1:3000/api/v1/config
 ```
 
-Expected response for `/api/v1/config`:
+Respuesta esperada de `/api/v1/config`:
 ```json
 {
   "status": "ok",
@@ -31,9 +32,9 @@ Expected response for `/api/v1/config`:
 }
 ```
 
-## Build
+## Compilación
 
 ```bash
 npm run build      # tsc → dist/
-npm run typecheck  # type-check without emitting
+npm run typecheck  # verificación de tipos sin emitir archivos
 ```

@@ -1,13 +1,13 @@
-# Backend Infrastructure — VPS Setup
+# Infraestructura del backend — Configuración del VPS
 
-## Directory layout on the VPS
+## Estructura de directorios en el VPS
 
 ```
 /opt/marketpaq/prod/backend/
-├── docker-compose.yml      ← rsynced from infra/backend/ (this file)
-├── README.md               ← rsynced from infra/backend/ (this file)
-├── .env                    ← created manually on the VPS; NEVER committed to git
-└── backend/                ← rsynced from backend/ in repo
+├── docker-compose.yml      ← sincronizado desde infra/backend/ (este archivo)
+├── README.md               ← sincronizado desde infra/backend/ (este archivo)
+├── .env                    ← creado manualmente en el VPS; NUNCA se sube a git
+└── backend/                ← sincronizado desde backend/ del repositorio
     ├── Dockerfile
     ├── package.json
     ├── tsconfig.json
@@ -15,30 +15,30 @@
     └── src/
 ```
 
-## Networks
+## Redes
 
-| Network | Type | Purpose |
-|---------|------|---------|
-| `web` | external | Shared Traefik network (must already exist on the host) |
-| `backend_net` | internal | Postgres ↔ backend communication; no external access |
+| Red | Tipo | Propósito |
+| --- | --- | --- |
+| `web` | externa | Red compartida de Traefik (debe existir ya en el servidor) |
+| `backend_net` | interna | Comunicación entre Postgres y el backend; sin acceso externo |
 
-## One-time bootstrap (first deploy)
+## Preparación inicial (primer despliegue)
 
-SSH into the VPS and run:
+Conéctate por SSH al VPS y ejecuta:
 
 ```bash
-# 1. Create the deploy directory
+# 1. Crear el directorio de despliegue
 mkdir -p /opt/marketpaq/prod/backend
 
-# 2. Create the .env file (see variable reference below)
+# 2. Crear el archivo .env (consulta la referencia de variables más abajo)
 nano /opt/marketpaq/prod/backend/.env
 
-# 3. Verify the external Docker network exists
+# 3. Verificar que la red externa de Docker existe
 docker network ls | grep web
-# If missing: docker network create web
+# Si no existe: docker network create web
 ```
 
-After the first CI run completes, verify the stack:
+Cuando termine la primera ejecución de CI, verifica el stack:
 
 ```bash
 cd /opt/marketpaq/prod/backend
@@ -46,11 +46,12 @@ docker compose ps
 docker compose logs backend --tail 50
 ```
 
-## .env variable reference
+## Referencia de variables de .env
 
-The `.env` file must exist at `/opt/marketpaq/prod/backend/.env`.
-It is loaded by `env_file: .env` in the compose file and is also used for
-compose variable substitution (the `${VAR}` references in docker-compose.yml).
+El archivo `.env` debe existir en `/opt/marketpaq/prod/backend/.env`.
+Lo carga `env_file: .env` en el archivo compose y también se usa para la
+sustitución de variables de compose (las referencias `${VAR}` de
+docker-compose.yml).
 
 ```dotenv
 # ── Postgres ──────────────────────────────────────────────────────────────────
@@ -59,32 +60,32 @@ POSTGRES_PASSWORD=<strong-random-password>
 POSTGRES_DB=marketpaq
 
 # ── Backend ───────────────────────────────────────────────────────────────────
-# Use the postgres service name, not localhost
+# Usa el nombre del servicio postgres, no localhost
 DATABASE_URL="postgresql://marketpaq:<strong-random-password>@postgres:5432/marketpaq"
 
 PORT=3000
 HOST=0.0.0.0
 NODE_ENV=production
 
-# Logging: trace | debug | info | warn | error | fatal | silent
+# Registro: trace | debug | info | warn | error | fatal | silent
 LOG_LEVEL=info
 
-# Allowed CORS origins (space-separated)
+# Orígenes CORS permitidos (separados por espacios)
 CORS_ORIGIN=https://marketpaq.com
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
-# Secret used to sign/verify JWT tokens. Must be a long random string.
+# ── Autenticación ─────────────────────────────────────────────────────────────
+# Secreto usado para firmar/verificar los tokens JWT. Debe ser una cadena aleatoria larga.
 AUTH_SECRET=<long-random-secret>
 
-# Comma-separated emails with admin access. No admins when unset.
+# Correos con acceso de administrador, separados por comas. Sin administradores si no se define.
 ADMIN_EMAILS=<admin-email>
 
-# Public base URL of this deployment — used for links and the logo in emails.
+# URL base pública de este despliegue — usada en los enlaces y el logotipo de los correos.
 MARKETPAQ_PUBLIC_URL=https://marketpaq.com
 
-# ── Email (optional) ──────────────────────────────────────────────────────────
-# SMTP settings for transactional email (password reset, welcome, etc.).
-# Leave blank to disable email sending.
+# ── Correo (opcional) ─────────────────────────────────────────────────────────
+# Configuración SMTP para el correo transaccional (restablecimiento de contraseña, bienvenida, etc.).
+# Déjalo vacío para desactivar el envío de correo.
 # SMTP_HOST=
 # SMTP_PORT=587
 # SMTP_USER=
@@ -92,42 +93,43 @@ MARKETPAQ_PUBLIC_URL=https://marketpaq.com
 # SMTP_FROM=noreply@marketpaq.com
 ```
 
-> The `backend/.env.example` in the repo mirrors the same variables with
-> placeholder values for local development.
+> El archivo `backend/.env.example` del repositorio replica las mismas
+> variables con valores de marcador para el desarrollo local.
 
-## Traefik routing
+## Enrutamiento con Traefik
 
-### How priority works (and why it matters)
+### Cómo funciona la prioridad (y por qué importa)
 
-Traefik v2 resolves conflicts between routers that match the same request by
-**priority**. When no explicit priority is set, Traefik uses the **rule's
-character length** as the default priority (longer = more specific = wins).
+Traefik v2 resuelve los conflictos entre routers que atienden la misma
+petición mediante la **prioridad**. Cuando no se define una prioridad explícita,
+Traefik usa la **longitud en caracteres de la regla** como prioridad
+predeterminada (más larga = más específica = gana).
 
-The two routers competing for `marketpaq.com`:
+Los dos routers compiten por `marketpaq.com`:
 
-| Router | Rule | Default priority (rule length) | Explicit priority |
+| Router | Regla | Prioridad predeterminada (longitud de la regla) | Prioridad explícita |
 |--------|------|-------------------------------|-------------------|
-| frontend | `Host("marketpaq.com")` | ~20 | none |
+| frontend | `Host("marketpaq.com")` | ~20 | ninguna |
 | backend | `Host("marketpaq.com") && PathPrefix("/api")` | ~47 | **10000** |
 
-Without an explicit priority on the backend, the default rule-length priorities
-would actually work correctly (47 > 20). However, **any explicit priority
-overrides the default completely**. We set `priority=10000` on the backend
-so that:
+Sin una prioridad explícita en el backend, las prioridades predeterminadas
+basadas en la longitud de la regla funcionarían bien (47 > 20). Sin embargo,
+**cualquier prioridad explícita anula por completo la predeterminada**.
+Definimos `priority=10000` en el backend para que:
 
-1. It wins over the frontend router regardless of what explicit priority the
-   frontend may ever gain.
-2. The intent is unambiguous — a human reading the labels immediately sees
-   "this is meant to take precedence."
-3. It leaves room (1–9999) for any future middleware-only routers with lower
-   priority if needed.
+1. Gane al router del frontend sin importar qué prioridad explícita pueda
+   llegar a tener el frontend en el futuro.
+2. La intención sea inequívoca — quien lea las etiquetas ve de inmediato que
+   «esto debe tener precedencia».
+3. Quede espacio (1–9999) para futuros routers de solo middleware con menor
+   prioridad, si fuera necesario.
 
-> **History**: the original label used `priority=10`. Because 10 < 20 (the
-> frontend's effective rule-length priority), Traefik routed `/api/*` to the
-> frontend nginx, which returned the SPA's `index.html` — causing `404`/HTML
-> responses for all API calls.
+> **Historial**: la etiqueta original usaba `priority=10`. Como 10 < 20 (la
+> prioridad efectiva del frontend por longitud de regla), Traefik enrutaba
+> `/api/*` al nginx del frontend, que devolvía el `index.html` de la SPA — lo que
+> provocaba respuestas `404`/HTML en todas las llamadas a la API.
 
-### Required labels on the backend container
+### Etiquetas obligatorias en el contenedor del backend
 
 ```
 traefik.enable=true
@@ -139,112 +141,115 @@ traefik.http.routers.marketpaq-backend.tls.certresolver=letsencrypt
 traefik.http.services.marketpaq-backend.loadbalancer.server.port=3000
 ```
 
-`traefik.docker.network=web` is required because the backend container is
-attached to **two** networks (`web` + `backend_net`). Without this label,
-Traefik may pick the wrong network IP and fail to proxy requests.
+`traefik.docker.network=web` es obligatoria porque el contenedor del backend está
+conectado a **dos** redes (`web` + `backend_net`). Sin esta etiqueta, Traefik
+puede elegir la IP de la red equivocada y no lograr redirigir las peticiones.
 
-> If your Traefik instance uses a different entrypoint name or cert resolver,
-> update the `traefik.http.routers.marketpaq-backend.*` labels in
-> `docker-compose.yml` before the first deploy.
+> Si tu instancia de Traefik usa un nombre de entrypoint o un resolutor de
+> certificados distinto, actualiza las etiquetas
+> `traefik.http.routers.marketpaq-backend.*` en `docker-compose.yml` antes del
+> primer despliegue.
 
-### Smoke tests
+### Pruebas de humo
 
 ```bash
-# Must return HTTP 200 with Content-Type: application/json
+# Debe devolver HTTP 200 con Content-Type: application/json
 curl -i https://marketpaq.com/api/health
 curl -i https://marketpaq.com/api/v1/config
 
-# Must return HTTP 200 with Content-Type: text/html (SPA)
+# Debe devolver HTTP 200 con Content-Type: text/html (SPA)
 curl -i https://marketpaq.com/
 ```
 
-Or run the automated check script from the repo root:
+O ejecuta el script de comprobación automatizado desde la raíz del repositorio:
 
 ```bash
 bash scripts/check-routing.sh
-# optionally pass a different base URL:
+# opcionalmente, indicar otra URL base:
 bash scripts/check-routing.sh https://pr-9.marketpaq.com
 ```
 
-### Troubleshooting: check-routing.sh returns `text/plain` for all endpoints
+### Solución de problemas: check-routing.sh devuelve `text/plain` en todos los endpoints
 
-This is a false negative, not a real routing failure. Causes and fixes:
+Esto es un falso negativo, no un fallo real de enrutamiento. Causas y
+soluciones:
 
-- **HEAD vs GET**: the old script used `curl -I` (HEAD). Some servers return
-  `Content-Type: text/plain` for HEAD requests. The current script uses GET
-  (`-o /dev/null -D -`) which is reliable.
-- **IPv6 routing**: on a dual-stack VPS, a non-interactive SSH shell may
-  resolve `marketpaq.com` to the server's own IPv6 address and hit a different
-  listener. The current script forces IPv4 with `-4`.
-- **Stale script on VPS**: if the CI "Upload scripts" step ran before this fix,
-  the old script may still be on the VPS. Re-deploy or copy the new version
-  manually:
+- **HEAD frente a GET**: el script antiguo usaba `curl -I` (HEAD). Algunos
+  servidores devuelven `Content-Type: text/plain` en las peticiones HEAD. El
+  script actual usa GET (`-o /dev/null -D -`), que es fiable.
+- **Enrutamiento IPv6**: en un VPS con doble pila, una shell SSH no interactiva
+  puede resolver `marketpaq.com` a la dirección IPv6 del propio servidor y
+  alcanzar un listener diferente. El script actual fuerza IPv4 con `-4`.
+- **Script obsoleto en el VPS**: si el paso «Upload scripts» de CI se ejecutó
+  antes de esta corrección, el script antiguo puede seguir en el VPS. Vuelve a
+  desplegar o copia la versión nueva manualmente:
   ```bash
   scp scripts/check-routing.sh user@vps:/opt/marketpaq/prod/backend/scripts/
   ssh user@vps "chmod +x /opt/marketpaq/prod/backend/scripts/check-routing.sh"
   ```
 
-### Troubleshooting: /api returns HTML again
+### Solución de problemas: /api vuelve a devolver HTML
 
-Work through this checklist in order:
+Revisa esta lista en orden:
 
-1. **Check the backend container is running**
+1. **Comprueba que el contenedor del backend está en ejecución**
    ```bash
    cd /opt/marketpaq/prod/backend && docker compose ps
    ```
-   If the backend is `Exited`, check logs: `docker compose logs backend --tail 50`
+   Si el backend está en `Exited`, revisa el registro: `docker compose logs backend --tail 50`
 
-2. **Verify the priority label is set correctly**
+2. **Verifica que la etiqueta de prioridad está correcta**
    ```bash
    docker inspect prod-backend-backend-1 \
      --format '{{range $k,$v := .Config.Labels}}{{$k}}={{$v}}{{"\n"}}{{end}}' \
      | grep priority
    ```
-   Expected: `traefik.http.routers.marketpaq-backend.priority=10000`
+   Se espera: `traefik.http.routers.marketpaq-backend.priority=10000`
 
-3. **Inspect the live Traefik router table** (if dashboard is enabled)
+3. **Inspecciona la tabla de routers activa de Traefik** (si el panel está habilitado)
    ```bash
    curl -s http://localhost:8080/api/http/routers | python3 -m json.tool \
      | grep -A5 'marketpaq'
    ```
-   Confirm `marketpaq-backend` has priority 10000 and status `enabled`.
+   Confirma que `marketpaq-backend` tiene la prioridad 10000 y el estado `enabled`.
 
-4. **Check which Docker network Traefik is using**
+4. **Comprueba qué red de Docker está usando Traefik**
    ```bash
    docker inspect prod-backend-backend-1 \
      --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
    ```
-   Both `web` and `backend_net` should appear. If `web` is missing, the
-   container was not joined to the external network — re-check
-   `docker-compose.yml` and restart with `docker compose up -d backend`.
+   Deben aparecer `web` y `backend_net`. Si falta `web`, el contenedor no se
+   unió a la red externa — revisa `docker-compose.yml` y reinicia con
+   `docker compose up -d backend`.
 
-5. **Force Traefik to re-read the container labels** (no restart needed)
+5. **Fuerza a Traefik a releer las etiquetas del contenedor** (sin reiniciar)
    ```bash
-   # Traefik watches the Docker socket; labels are picked up on container
-   # restart only. Recreate the backend container:
+   # Traefik vigila el socket de Docker; las etiquetas se toman en cuenta
+   # solo al reiniciar el contenedor. Recrea el contenedor del backend:
    docker compose up -d --force-recreate backend
    ```
 
-6. **Confirm there is no conflicting static Traefik config**
-   Look for `/opt/marketpaq/traefik/` or `/etc/traefik/` for any file-based
-   router definitions that might override the Docker provider labels.
+6. **Confirma que no hay una configuración estática de Traefik que entra en conflicto**
+   Busca en `/opt/marketpaq/traefik/` o `/etc/traefik/` cualquier definición de
+   routers basada en archivos que pueda anular las etiquetas del proveedor de
+   Docker.
 
-## CI deploy (automated)
+## Despliegue con CI (automatizado)
 
-Every push to `main` triggers the GitHub Actions workflow which:
+Cada push a `main` activa el flujo de trabajo de GitHub Actions, que:
 
-1. Rsyncs `infra/backend/` → `/opt/marketpaq/prod/backend/` (compose file; `.env` is excluded from deletion)
-2. Rsyncs `backend/` → `/opt/marketpaq/prod/backend/backend/` (app source)
-3. SSHs in and runs:
+1. Sincroniza `infra/backend/` → `/opt/marketpaq/prod/backend/` (archivo compose; `.env` se excluye del borrado)
+2. Sincroniza `backend/` → `/opt/marketpaq/prod/backend/backend/` (código de la aplicación)
+3. Entra por SSH y ejecuta:
    ```bash
    docker compose up -d postgres
    docker compose build backend
-   # waits for pg_isready
+   # espera a que pg_isready responda
    docker compose run --rm backend npx prisma migrate deploy
    docker compose up -d backend
    ```
 
-## Manual re-deploy
+## Redespiegue manual
 
 ```bash
 cd /opt/marketpaq/prod/backend
@@ -253,12 +258,12 @@ docker compose run --rm backend npx prisma migrate deploy
 docker compose up -d backend
 ```
 
-## Logs & troubleshooting
+## Registros y solución de problemas
 
 ```bash
-# Tail backend logs
+# Seguir el registro del backend
 docker compose logs -f backend
 
-# Tail postgres logs
+# Seguir el registro de postgres
 docker compose logs -f postgres
 ```
