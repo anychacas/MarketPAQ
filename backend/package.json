@@ -1,6 +1,6 @@
 {
   "name": "marketpaq-backend",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -20,22 +20,26 @@
     "@fastify/cors": "^10.0.0",
     "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@fastify/static": "^9.0.0",
-    "@prisma/client": "^6.0.0",
-    "@types/nodemailer": "^7.0.11",
+    "@fastify/static": "^10.1.12",
+    "@prisma/client": "^6.19.3",
+    "@types/nodemailer": "^8.0.2",
     "bcryptjs": "^2.4.3",
     "cron-parser": "^5.5.0",
-    "fastify": "^5.0.0",
+    "fastify": "^5.12.8",
     "fastify-plugin": "^5.0.0",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^8.0.1"
+    "nodemailer": "^10.6.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.0.0",
-    "prisma": "^6.0.0",
-    "tsx": "^4.0.0",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2",
+    "effect": "^3.22.5"
   }
 }
