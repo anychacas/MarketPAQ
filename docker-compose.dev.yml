@@ -1,23 +1,23 @@
-# MarketPAQ — LOCAL DEVELOPMENT stack (dev only)
+# MarketPAQ — stack de DESARROLLO LOCAL (solo para desarrollo)
 #
 #   docker compose -f docker-compose.dev.yml up -d
-#       → starts PostgreSQL only (the backend normally runs on your host with npm)
+#       → inicia únicamente PostgreSQL (el backend normalmente se ejecuta en tu equipo con npm)
 #
 #   docker compose -f docker-compose.dev.yml --profile backend up -d
-#       → also starts the backend inside a container (hot reload, port 3000)
+#       → también inicia el backend dentro de un contenedor (recarga en caliente, puerto 3000)
 #
 #   docker compose -f docker-compose.dev.yml down
-#       → stops and removes the containers (keeps the database volume)
+#       → detiene y elimina los contenedores (conserva el volumen de la base de datos)
 #
 #   docker compose -f docker-compose.dev.yml down -v
-#       → stops everything AND wipes the database volume
+#       → detiene todo Y borra el volumen de la base de datos
 #
-# This file is intentionally NOT the production compose:
-#   - no Traefik labels
-#   - no external networks
-#   - no /opt paths
-#   - credentials are throw-away development values (marketpaq/marketpaq)
-# The production compose lives in infra/backend/docker-compose.yml — do not edit it.
+# Este archivo NO es el compose de producción a propósito:
+#   - sin etiquetas de Traefik
+#   - sin redes externas
+#   - sin rutas en /opt
+#   - las credenciales son valores desechables de desarrollo (marketpaq/marketpaq)
+# El compose de producción está en infra/backend/docker-compose.yml — no lo edites.
 
 name: marketpaq-dev
 
@@ -27,12 +27,12 @@ services:
     container_name: marketpaq-dev-postgres
     restart: unless-stopped
     environment:
-      # Throw-away development credentials — never reuse them anywhere else.
+      # Credenciales desechables de desarrollo — nunca las reutilices en ningún otro lugar.
       POSTGRES_USER: marketpaq
       POSTGRES_PASSWORD: marketpaq
       POSTGRES_DB: marketpaq
     ports:
-      # Bound to loopback only: the dev database is never reachable from the LAN.
+      # Solo está enlazado al bucle local: la base de datos de desarrollo nunca es accesible desde la LAN.
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
@@ -43,13 +43,13 @@ services:
       retries: 10
 
   backend:
-    # Optional: only started when the "backend" profile is enabled.
+    # Opcional: solo se inicia cuando el perfil "backend" está habilitado.
     profiles: ["backend"]
     build:
       context: ./backend
       dockerfile: Dockerfile
-      # The builder stage keeps devDependencies (tsx, prisma CLI) so the source
-      # can be watched and migrations can run inside the container.
+      # La etapa builder conserva las devDependencies (tsx, prisma CLI) para poder
+      # observar el código fuente y ejecutar las migraciones dentro del contenedor.
       target: builder
     container_name: marketpaq-dev-backend
     restart: unless-stopped
@@ -61,15 +61,15 @@ services:
       PORT: "3000"
       HOST: 0.0.0.0
       LOG_LEVEL: info
-      # Inside the compose network the database host is the service name.
+      # Dentro de la red de compose, el host de la base de datos es el nombre del servicio.
       DATABASE_URL: postgresql://marketpaq:marketpaq@postgres:5432/marketpaq
       CORS_ORIGIN: http://localhost:5173
-      # Dev-only secret. Replace it if you expose this stack to anything else.
+      # Secreto solo para desarrollo. Cámbialo si expones este stack a cualquier otra cosa.
       AUTH_SECRET: dev-only-insecure-secret-change-me
       ADMIN_EMAILS: admin@example.com
       MARKETPAQ_PUBLIC_URL: http://localhost:5173
       FRONTEND_BASE_URL: http://localhost:5173
-      # Print emails to the container log instead of sending them.
+      # Imprime los correos en el registro del contenedor en lugar de enviarlos.
       MAIL_MODE: log
       UPLOAD_DIR: /app/uploads
     ports:
